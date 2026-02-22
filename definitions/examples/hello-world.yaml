@@ -1,0 +1,13 @@
+name: hello-world
+image: nginx:alpine
+replicas: 2
+ports:
+  - "8888:80"
+env:
+  NGINX_HOST: localhost
+constraints: []
+labels:
+  app: hello-world
+  environment: demo
+networks: []
+mounts: []

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "swarm-orchestrator": {
+      "command": "/opt/homebrew/Caskroom/miniconda/base/envs/swarm-orchestrator/bin/python",
+      "args": ["-m", "backend.mcp_server"],
+      "cwd": "/Users/andrew/CODE/swarm-orchestrator"
+    }
+  }
+}
