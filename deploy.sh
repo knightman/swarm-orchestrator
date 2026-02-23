@@ -41,8 +41,8 @@ deploy() {
 }
 
 update() {
-    echo "==> Force-updating service ${STACK_NAME}_app"
-    ssh "${MANAGER_HOST}" "docker service update --force ${STACK_NAME}_app"
+    echo "==> Updating service ${STACK_NAME}_app to latest image"
+    ssh "${MANAGER_HOST}" "docker service update --image ${IMAGE} ${STACK_NAME}_app"
     echo "==> Service updated"
 }
 

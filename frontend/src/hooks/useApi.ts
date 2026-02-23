@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
-import type { CatalogService, ClusterHealth, RegistryRepository, SwarmNode, SwarmService } from "../api/types";
+import type { CatalogService, ClusterHealth, RegistryRepository, RegistryRepositoryDetail, SwarmNode, SwarmService } from "../api/types";
 
 export function useHealth() {
   return useQuery<ClusterHealth>({
@@ -34,6 +34,26 @@ export function useRegistryRepos() {
   return useQuery<RegistryRepository[]>({
     queryKey: ["registry"],
     queryFn: () => api.get("/registry/repositories"),
+  });
+}
+
+export function useRegistryRepoDetail(name: string) {
+  return useQuery<RegistryRepositoryDetail>({
+    queryKey: ["registry", name, "details"],
+    queryFn: () => api.get(`/registry/repositories/${name}/details`),
+    enabled: false,
+  });
+}
+
+export function useDeleteTag() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ name, tag }: { name: string; tag: string }) =>
+      api.delete(`/registry/repositories/${name}/tags/${tag}`),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["registry", variables.name, "details"] });
+      qc.invalidateQueries({ queryKey: ["registry"] });
+    },
   });
 }
 

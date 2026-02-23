@@ -92,8 +92,32 @@ async def get_registry_images() -> str:
     result = []
     for repo in repos:
         tags = await registry_client.list_tags(repo)
-        result.append({"name": repo, "tags": tags})
+        tag_details = []
+        for tag in tags:
+            manifest = await registry_client.get_manifest(repo, tag)
+            config_info = {"architecture": "", "os": ""}
+            if manifest.get("config_digest"):
+                config_info = await registry_client.get_image_config(repo, manifest["config_digest"])
+            tag_details.append({
+                "tag": tag,
+                "digest": manifest.get("digest", ""),
+                "size": manifest.get("size", 0),
+                "architecture": config_info.get("architecture", ""),
+                "os": config_info.get("os", ""),
+            })
+        result.append({"name": repo, "tags": tag_details})
     return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+async def delete_registry_tag(repository: str, tag: str) -> str:
+    """Delete a tag from the private registry."""
+    manifest = await registry_client.get_manifest(repository, tag)
+    digest = manifest.get("digest")
+    if not digest:
+        return json.dumps({"deleted": False, "error": f"Tag '{tag}' not found in '{repository}'"})
+    success = await registry_client.delete_manifest(repository, digest)
+    return json.dumps({"deleted": success, "repository": repository, "tag": tag})
 
 
 async def main():

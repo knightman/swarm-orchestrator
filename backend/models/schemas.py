@@ -108,6 +108,22 @@ class RegistryRepository(BaseModel):
     tags: list[str] = Field(default_factory=list)
 
 
+class TagDetail(BaseModel):
+    tag: str
+    digest: str
+    media_type: str = ""
+    size: int = 0
+    architecture: str = ""
+    os: str = ""
+    created: str = ""
+
+
+class RegistryRepositoryDetail(BaseModel):
+    name: str
+    tags: list[TagDetail] = Field(default_factory=list)
+    tag_count: int = 0
+
+
 # --- Swarm Service (live state from Docker) ---
 
 class SwarmService(BaseModel):

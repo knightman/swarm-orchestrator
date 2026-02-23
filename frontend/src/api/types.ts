@@ -61,3 +61,19 @@ export interface RegistryRepository {
   name: string;
   tags: string[];
 }
+
+export interface TagDetail {
+  tag: string;
+  digest: string;
+  media_type: string;
+  size: number;
+  architecture: string;
+  os: string;
+  created: string;
+}
+
+export interface RegistryRepositoryDetail {
+  name: string;
+  tags: TagDetail[];
+  tag_count: number;
+}
