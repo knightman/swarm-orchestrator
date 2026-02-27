@@ -42,6 +42,7 @@ class ServiceDefinition(BaseModel):
     networks: list[str] = Field(default_factory=list)
     mounts: list[str] = Field(default_factory=list)
     command: str | None = None
+    build_context: str | None = None
 
 
 class CatalogService(BaseModel):
@@ -69,7 +70,17 @@ class ScaleRequest(BaseModel):
     replicas: int = Field(ge=0, le=100)
 
 
+class BuildRequest(BaseModel):
+    platform: str = "linux/amd64"
+
+
 # --- Node ---
+
+class NodeService(BaseModel):
+    name: str
+    image: str
+    replicas_on_node: int = 1
+
 
 class SwarmNode(BaseModel):
     id: str
@@ -83,6 +94,7 @@ class SwarmNode(BaseModel):
     engine_version: str = ""
     labels: dict[str, str] = Field(default_factory=dict)
     resources: dict[str, Any] = Field(default_factory=dict)
+    services: list[NodeService] = Field(default_factory=list)
 
 
 # --- Health ---
@@ -124,6 +136,14 @@ class RegistryRepositoryDetail(BaseModel):
     tag_count: int = 0
 
 
+# --- Projects ---
+
+class ProjectFolder(BaseModel):
+    name: str
+    has_dockerfile: bool
+    has_compose: bool
+
+
 # --- Swarm Service (live state from Docker) ---
 
 class SwarmService(BaseModel):
@@ -132,5 +152,6 @@ class SwarmService(BaseModel):
     image: str
     replicas: int = 0
     running_replicas: int = 0
+    completed_replicas: int = 0
     ports: list[str] = Field(default_factory=list)
     created_at: str = ""

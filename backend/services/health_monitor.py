@@ -48,7 +48,12 @@ class HealthMonitor:
         for svc in catalog_services:
             live = live_services.get(svc.name)
             if live:
-                new_status = ServiceStatus.RUNNING if live.running_replicas > 0 else ServiceStatus.FAILED
+                if live.running_replicas > 0:
+                    new_status = ServiceStatus.RUNNING
+                elif live.completed_replicas > 0:
+                    new_status = ServiceStatus.STOPPED
+                else:
+                    new_status = ServiceStatus.FAILED
                 if svc.status != new_status or svc.swarm_id != live.id:
                     await catalog.set_service_status(svc.name, new_status, live.id)
             elif svc.status == ServiceStatus.RUNNING:

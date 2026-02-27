@@ -10,6 +10,7 @@ from docker.types import EndpointSpec, Mount, RestartPolicy, ServiceMode
 from backend.config import settings
 from backend.models.schemas import (
     NodeAvailability,
+    NodeService,
     NodeStatus,
     ServiceDefinition,
     SwarmNode,
@@ -36,7 +37,47 @@ class SwarmClient:
 
     # --- Nodes ---
 
+    def _services_by_node(self) -> dict[str, list[NodeService]]:
+        """Return a mapping of node_id -> list of NodeService for running tasks."""
+        # Build service_id -> (name, image) lookup
+        svc_info: dict[str, tuple[str, str]] = {}
+        try:
+            for svc in self.client.services.list():
+                attrs = svc.attrs or {}
+                spec = attrs.get("Spec", {})
+                image = spec.get("TaskTemplate", {}).get("ContainerSpec", {}).get("Image", "")
+                svc_info[attrs.get("ID", svc.id)] = (spec.get("Name", svc.name), image)
+        except Exception:
+            return {}
+
+        # Count running tasks per (node, service)
+        by_node: dict[str, dict[str, dict]] = {}
+        try:
+            for task in self.client.api.tasks(filters={"desired-state": "running"}):
+                if task.get("Status", {}).get("State") != "running":
+                    continue
+                node_id = task.get("NodeID", "")
+                svc_id = task.get("ServiceID", "")
+                if not node_id or svc_id not in svc_info:
+                    continue
+                by_node.setdefault(node_id, {})
+                if svc_id not in by_node[node_id]:
+                    name, image = svc_info[svc_id]
+                    by_node[node_id][svc_id] = {"name": name, "image": image, "count": 0}
+                by_node[node_id][svc_id]["count"] += 1
+        except Exception:
+            return {}
+
+        result: dict[str, list[NodeService]] = {}
+        for node_id, svcs in by_node.items():
+            result[node_id] = [
+                NodeService(name=v["name"], image=v["image"], replicas_on_node=v["count"])
+                for v in svcs.values()
+            ]
+        return result
+
     def list_nodes(self) -> list[SwarmNode]:
+        services_by_node = self._services_by_node()
         nodes = []
         for n in self.client.nodes.list():
             attrs = n.attrs or {}
@@ -49,9 +90,10 @@ class SwarmClient:
 
             nano_cpu = resources.get("NanoCPUs", 0)
             mem_bytes = resources.get("MemoryBytes", 0)
+            node_id = attrs.get("ID", n.id)
 
             nodes.append(SwarmNode(
-                id=attrs.get("ID", n.id),
+                id=node_id,
                 hostname=desc.get("Hostname", ""),
                 role=spec.get("Role", "worker"),
                 status=NodeStatus(status.get("State", "unknown")),
@@ -66,6 +108,7 @@ class SwarmClient:
                     "memory_mb": mem_bytes / (1024 * 1024) if mem_bytes else 0,
                     "gpus": _count_gpus(resources),
                 },
+                services=services_by_node.get(node_id, []),
             ))
         return nodes
 
@@ -113,12 +156,18 @@ class SwarmClient:
                     ports.append(f"{published}:{target}")
 
             running = 0
+            completed = 0
             try:
                 tasks = svc.tasks(filters={"desired-state": "running"})
                 running = sum(
                     1 for t in tasks
                     if t.get("Status", {}).get("State") == "running"
                 )
+                if running == 0:
+                    completed = sum(
+                        1 for t in svc.tasks()
+                        if t.get("Status", {}).get("State") == "complete"
+                    )
             except Exception:
                 pass
 
@@ -128,6 +177,7 @@ class SwarmClient:
                 image=container_spec.get("Image", ""),
                 replicas=replicated.get("Replicas", 1),
                 running_replicas=running,
+                completed_replicas=completed,
                 ports=ports,
                 created_at=attrs.get("CreatedAt", ""),
             ))

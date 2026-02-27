@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     registry_url: str = "http://localhost:5000"
     database_path: str = "./data/swarm_orchestrator.db"
     definitions_dir: str = "./definitions"
+    projects_dir: str = "/projects"
     health_check_interval: int = 30
     host: str = "0.0.0.0"
     port: int = 8080
@@ -22,6 +23,10 @@ class Settings(BaseSettings):
     @property
     def defs_path(self) -> Path:
         return Path(self.definitions_dir)
+
+    @property
+    def projects_path(self) -> Path:
+        return Path(self.projects_dir)
 
 
 settings = Settings()

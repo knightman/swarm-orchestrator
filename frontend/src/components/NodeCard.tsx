@@ -1,9 +1,9 @@
-import { Cpu, HardDrive, MonitorSpeaker } from "lucide-react";
+import { Cpu, HardDrive, MonitorSpeaker, Box } from "lucide-react";
 import type { SwarmNode } from "../api/types";
 import StatusBadge from "./StatusBadge";
 
 export default function NodeCard({ node }: { node: SwarmNode }) {
-  const { hostname, role, status, availability, addr, platform_arch, engine_version, resources } = node;
+  const { hostname, role, status, availability, addr, platform_arch, engine_version, resources, services } = node;
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -22,6 +22,26 @@ export default function NodeCard({ node }: { node: SwarmNode }) {
         {resources.gpus > 0 && <span className="flex items-center gap-1"><MonitorSpeaker size={14} /> {resources.gpus} GPU</span>}
         <span className="ml-auto">Docker {engine_version}</span>
       </div>
+      {services.length > 0 && (
+        <div className="border-t border-gray-800 pt-3 space-y-1.5">
+          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Running Services</p>
+          {services.map((svc) => (
+            <div key={svc.name} className="flex items-center gap-2 text-xs">
+              <Box size={12} className="text-blue-400 shrink-0" />
+              <span className="font-medium text-gray-200">{svc.name}</span>
+              {svc.replicas_on_node > 1 && (
+                <span className="text-gray-500">&times;{svc.replicas_on_node}</span>
+              )}
+              <span className="text-gray-600 truncate ml-auto">{svc.image.split("/").pop()?.split(":")[0]}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {services.length === 0 && (
+        <div className="border-t border-gray-800 pt-3">
+          <p className="text-xs text-gray-600">No running services</p>
+        </div>
+      )}
     </div>
   );
 }

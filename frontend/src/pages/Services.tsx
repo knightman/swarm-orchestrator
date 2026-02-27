@@ -73,13 +73,18 @@ export default function Services() {
 }
 
 function LiveServiceRow({ service }: { service: SwarmService }) {
-  const healthy = service.running_replicas >= service.replicas;
+  const status =
+    service.running_replicas >= service.replicas
+      ? "running"
+      : service.completed_replicas > 0
+      ? "stopped"
+      : "failed";
   return (
     <tr className="border-b border-gray-800 hover:bg-gray-900/50">
       <td className="py-3 px-4 font-medium">{service.name}</td>
       <td className="py-3 px-4 text-sm text-gray-400 max-w-xs truncate">{service.image.split("@")[0]}</td>
       <td className="py-3 px-4">
-        <StatusBadge status={healthy ? "running" : "failed"} />
+        <StatusBadge status={status} />
       </td>
       <td className="py-3 px-4 text-sm">{service.running_replicas}/{service.replicas}</td>
       <td className="py-3 px-4 text-sm text-gray-400">{service.ports.join(", ") || "-"}</td>

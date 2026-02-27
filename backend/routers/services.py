@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
-from backend.models.schemas import CatalogService, ScaleRequest, ServiceCreate, ServiceStatus, ServiceUpdate, SwarmService
-from backend.services import catalog
+from backend.models.schemas import BuildRequest, CatalogService, ScaleRequest, ServiceCreate, ServiceStatus, ServiceUpdate, SwarmService
+from backend.services import catalog, builder
 from backend.services.docker_client import swarm_client
 
 router = APIRouter(prefix="/api/services", tags=["services"])
@@ -80,6 +80,23 @@ async def scale_service(name: str, req: ScaleRequest):
     if not swarm_client.scale_service(name, req.replicas):
         raise HTTPException(status_code=500, detail="Failed to scale service")
     return {"status": "scaled", "name": name, "replicas": req.replicas}
+
+
+@router.post("/{name}/build")
+async def build_service(name: str, req: BuildRequest = BuildRequest()):
+    svc = await catalog.get_service(name)
+    if not svc:
+        raise HTTPException(status_code=404, detail="Service not found")
+    if not svc.definition.build_context:
+        raise HTTPException(status_code=422, detail="Service has no build_context defined")
+    success, logs = await builder.build_and_push(
+        svc.definition.build_context,
+        svc.definition.image,
+        req.platform,
+    )
+    if not success:
+        raise HTTPException(status_code=500, detail=f"Build failed:\n{logs}")
+    return {"status": "built", "name": name, "image": svc.definition.image, "logs": logs}
 
 
 @router.get("/{name}/logs")
