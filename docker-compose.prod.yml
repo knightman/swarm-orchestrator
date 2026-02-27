@@ -1,17 +1,19 @@
 services:
   app:
-    image: 192.168.1.215:5000/swarm-orchestrator:latest
+    image: ${REGISTRY_HOST}/swarm-orchestrator:latest
     ports:
-      - "8080:8080"
+      - "${APP_PORT:-8080}:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - orchestrator-data:/app/data
+      - ${PROJECTS_HOST_PATH:-/tmp/projects}:/projects
     environment:
       - DOCKER_HOST=unix:///var/run/docker.sock
-      - REGISTRY_URL=http://192.168.1.215:5000
+      - REGISTRY_URL=http://${REGISTRY_HOST}
       - DATABASE_PATH=/app/data/swarm_orchestrator.db
       - DEFINITIONS_DIR=/app/definitions
-      - HEALTH_CHECK_INTERVAL=30
+      - PROJECTS_DIR=/projects
+      - HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-30}
     deploy:
       replicas: 1
       placement:

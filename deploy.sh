@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MANAGER_HOST="andrew@mini2"
-REGISTRY="192.168.1.215:5000"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/.env" ]]; then
+    set -a; source "${SCRIPT_DIR}/.env"; set +a
+fi
+
+MANAGER_HOST="${SWARM_MANAGER_SSH:?Set SWARM_MANAGER_SSH in .env (e.g. user@manager-node)}"
+REGISTRY="${REGISTRY_HOST:?Set REGISTRY_HOST in .env (e.g. 192.168.1.100:5000)}"
 IMAGE="${REGISTRY}/swarm-orchestrator:latest"
 STACK_NAME="orchestrator"
 COMPOSE_FILE="docker-compose.prod.yml"
@@ -42,7 +47,7 @@ deploy() {
 
 update() {
     echo "==> Updating service ${STACK_NAME}_app to latest image"
-    ssh "${MANAGER_HOST}" "docker service update --image ${IMAGE} ${STACK_NAME}_app"
+    ssh "${MANAGER_HOST}" "docker service update --force --image ${IMAGE} ${STACK_NAME}_app"
     echo "==> Service updated"
 }
 

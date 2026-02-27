@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "swarm-orchestrator": {
+      "command": "conda",
+      "args": ["run", "-n", "swarm-orchestrator", "python", "-m", "backend.mcp_server"],
+      "cwd": "."
+    },
+    "ollama": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "ollama-mcp"],
+      "env": {
+        "OLLAMA_HOST": "${OLLAMA_HOST:-http://localhost:11434}"
+      }
+    }
+  }
+}

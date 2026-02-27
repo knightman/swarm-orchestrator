@@ -7,9 +7,13 @@ build/
 .venv/
 venv/
 .env
+.mcp.json
+.claude/
 *.db
 *.sqlite
 node_modules/
 frontend/dist/
 .DS_Store
 *chat.txt
+definitions/*.yaml
+!definitions/examples/

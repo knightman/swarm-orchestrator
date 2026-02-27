@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Swarm Orchestrator is a Docker Swarm management app for a 3-node local network cluster (mini2 manager, spark1/rog1 workers). It provides a web UI, REST API, and MCP server for deploying, monitoring, and cataloging swarm services.
+Swarm Orchestrator is a Docker Swarm management app for local network clusters. It provides a web UI, REST API, and MCP server for deploying, monitoring, and cataloging swarm services.
 
 ## Architecture
 
@@ -10,6 +10,17 @@ Swarm Orchestrator is a Docker Swarm management app for a 3-node local network c
 - **Frontend**: React 19 + Vite + TypeScript + Tailwind v4 in `frontend/` — SPA with TanStack Query
 - **MCP**: `backend/mcp_server.py` — 8 tools via FastMCP for AI agent integration (stdio transport)
 - **Deployment**: Runs as Swarm service `orchestrator_app` on the manager node, serves frontend as static files via SPA catch-all route
+
+## Configuration
+
+All environment-specific values (IPs, hostnames, paths) are stored in `.env` (gitignored). See `.env.example` for the full list. Run `./setup.sh` for interactive first-time setup.
+
+Key variables used across the project:
+- `SWARM_MANAGER_SSH` — SSH target for the manager node (used by `deploy.sh`)
+- `REGISTRY_HOST` — private registry address, e.g. `192.168.1.100:5000` (used by `deploy.sh`, `docker-compose.prod.yml`)
+- `APP_PORT` — orchestrator port (default 8080)
+- `PROJECTS_HOST_PATH` — host dir mounted as `/projects` in the container
+- Backend settings (`REGISTRY_URL`, `DATABASE_PATH`, etc.) are read by pydantic-settings in `backend/config.py`
 
 ## Key Files
 
@@ -19,28 +30,18 @@ Swarm Orchestrator is a Docker Swarm management app for a 3-node local network c
 - `backend/services/catalog.py` — async SQLite CRUD for the service catalog
 - `backend/services/health_monitor.py` — background task syncing swarm state to catalog
 - `backend/services/registry_client.py` — HTTP client for Docker Registry v2 API
-- `backend/config.py` — `Settings` via pydantic-settings, singleton `settings`
+- `backend/routers/projects.py` — `GET /api/projects` lists subdirs of `settings.projects_path`
+- `backend/config.py` — `Settings` via pydantic-settings, singleton `settings`; reads `.env` automatically
 - `frontend/src/hooks/useApi.ts` — all TanStack Query hooks
-- `docker-compose.prod.yml` — Swarm stack definition (service name: `app`)
-
-## Swarm Cluster
-
-| Node | IP | Role | Arch | Special |
-|------|----|------|------|---------|
-| mini2 | 192.168.1.215 | Manager | x86_64 | Portainer, Immich, registry:5000 |
-| spark1 | 192.168.1.176 | Worker | aarch64 | NVIDIA GPU, 20 CPUs, 120GB RAM |
-| rog1 | - | Worker | x86_64 | - |
-
-Private registry at `192.168.1.215:5000` (HTTP, requires insecure-registries config). Images must use IP address (not hostname) in service definitions.
+- `docker-compose.prod.yml` — Swarm stack definition (uses `${VAR}` substitution from `.env`)
+- `deploy.sh` — build/deploy helper (sources `.env` for `SWARM_MANAGER_SSH` and `REGISTRY_HOST`)
 
 ## Python Environment
 
 Always use the `swarm-orchestrator` conda environment for Python/pip commands:
 
 ```sh
-# Activate
 conda activate swarm-orchestrator
-
 # Or prefix commands
 conda run -n swarm-orchestrator <command>
 ```
@@ -63,35 +64,24 @@ cd frontend && npx tsc --noEmit
 # Frontend build
 cd frontend && npm run build
 
-# Docker build + push (must target linux/amd64 for mini2)
-docker buildx build --platform linux/amd64 \
-  -t 192.168.1.215:5000/swarm-orchestrator:latest --push .
-
-# Deploy stack to swarm (on mini2)
-scp docker-compose.prod.yml andrew@mini2:~/swarm-orchestrator-stack.yml
-# then on mini2:
-docker stack deploy -c ~/swarm-orchestrator-stack.yml orchestrator
-
-# Update running service after new image push (on mini2)
-docker service update --force orchestrator_app
-
-# Full redeploy if stack config changed (on mini2)
-docker stack rm orchestrator && sleep 5
-docker stack deploy -c ~/swarm-orchestrator-stack.yml orchestrator
+# Build + deploy (uses .env for registry and manager host)
+./deploy.sh build      # Build linux/amd64 image and push to registry
+./deploy.sh deploy     # SCP compose file to manager and deploy stack
+./deploy.sh update     # Force-update running service after image push
+./deploy.sh redeploy   # Full cycle: build, remove, deploy
 
 # Run MCP server standalone (stdio)
 conda run -n swarm-orchestrator python -m backend.mcp_server
-
-# Deploy helper (build, deploy, remove, start, stop, etc.)
-./deploy.sh <command>   # run ./deploy.sh for usage
 ```
 
 ## API Notes
 
 - `/api/services` — catalog services (from SQLite)
 - `/api/services/live` — live swarm services (from Docker API directly)
-- The Services page in the frontend shows both sections
+- `/api/projects` — lists subdirectories of `PROJECTS_DIR` (container path, mapped from `PROJECTS_HOST_PATH` on manager)
+- The Services page in the frontend shows both Swarm Services (live) and Catalog sections
 - The Dashboard health endpoint also queries Docker directly for node/service counts
+- Service status: `running` = replicas up, `stopped` = tasks completed cleanly (exit 0), `failed` = tasks crashed/rejected
 
 ## MCP Tools
 
@@ -110,4 +100,9 @@ MCP server initializes its own DB connection and Docker client. It shares the sa
 - Tailwind v4 (CSS import only, no config file)
 - Service definitions can be YAML files in `definitions/` or created via API
 - Status syncing happens in `health_monitor.py` on a configurable interval (default 30s)
-- Images must be built with `--platform linux/amd64` since dev machine (Mac) is ARM
+- `SwarmService.completed_replicas` counts tasks in `complete` state — used to distinguish stopped from failed
+- Images must be built with `--platform linux/amd64` if deploying to x86_64 manager nodes (e.g. from an ARM dev machine)
+- Bind mounts for service output dirs must be pre-created on the target node before deploying (Docker Swarm does not auto-create host dirs for bind mounts)
+- Private registry uses HTTP — all Docker daemons must have it in `insecure-registries`
+- For GPU workloads, the target node needs `nvidia-container-runtime` and `default-runtime: nvidia` in `daemon.json`
+- For X11 display services, set `DISPLAY`, mount X11 socket and Xauthority, and run `xhost +local:` on the display node
