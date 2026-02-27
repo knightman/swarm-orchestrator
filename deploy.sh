@@ -38,8 +38,8 @@ build() {
 }
 
 deploy() {
-    echo "==> Copying ${COMPOSE_FILE} to ${MANAGER_HOST}"
-    scp "${COMPOSE_FILE}" "${MANAGER_HOST}:${REMOTE_COMPOSE}"
+    echo "==> Resolving variables and copying compose file to ${MANAGER_HOST}"
+    envsubst < "${COMPOSE_FILE}" | ssh "${MANAGER_HOST}" "cat > ${REMOTE_COMPOSE}"
     echo "==> Deploying stack '${STACK_NAME}'"
     ssh "${MANAGER_HOST}" "docker stack deploy -c ${REMOTE_COMPOSE} ${STACK_NAME}"
     echo "==> Stack deployed"
