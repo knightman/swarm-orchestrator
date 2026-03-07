@@ -25,6 +25,7 @@ export default function Services() {
                   <th className="py-3 px-4">Image</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Replicas</th>
+                  <th className="py-3 px-4">Nodes</th>
                   <th className="py-3 px-4">Ports</th>
                 </tr>
               </thead>
@@ -87,6 +88,7 @@ function LiveServiceRow({ service }: { service: SwarmService }) {
         <StatusBadge status={status} />
       </td>
       <td className="py-3 px-4 text-sm">{service.running_replicas}/{service.replicas}</td>
+      <td className="py-3 px-4 text-sm text-gray-400">{service.nodes.join(", ") || "-"}</td>
       <td className="py-3 px-4 text-sm text-gray-400">{service.ports.join(", ") || "-"}</td>
     </tr>
   );

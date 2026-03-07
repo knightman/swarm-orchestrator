@@ -30,6 +30,7 @@ Key variables used across the project:
 - `backend/services/catalog.py` — async SQLite CRUD for the service catalog
 - `backend/services/health_monitor.py` — background task syncing swarm state to catalog
 - `backend/services/registry_client.py` — HTTP client for Docker Registry v2 API
+- `backend/routers/stacks.py` — `GET /api/stacks` groups live services by `com.docker.stack.namespace` label
 - `backend/routers/projects.py` — `GET /api/projects` lists subdirs of `settings.projects_path`
 - `backend/config.py` — `Settings` via pydantic-settings, singleton `settings`; reads `.env` automatically
 - `frontend/src/hooks/useApi.ts` — all TanStack Query hooks
@@ -77,9 +78,11 @@ conda run -n swarm-orchestrator python -m backend.mcp_server
 ## API Notes
 
 - `/api/services` — catalog services (from SQLite)
-- `/api/services/live` — live swarm services (from Docker API directly)
+- `/api/services/live` — live swarm services (from Docker API directly); includes `nodes` field (hostnames of nodes with running tasks)
+- `/api/stacks` — live stacks grouped by `com.docker.stack.namespace` label; each stack has name, status, services, ports, nodes, replica counts
 - `/api/projects` — lists subdirectories of `PROJECTS_DIR` (container path, mapped from `PROJECTS_HOST_PATH` on manager)
-- The Services page in the frontend shows both Swarm Services (live) and Catalog sections
+- The Services page shows both Swarm Services (live, with Nodes column) and Catalog sections
+- The Dashboard shows clickable stat cards (Nodes → `/nodes`, Services → `/services`) and a Stacks section with per-stack cards
 - The Dashboard health endpoint also queries Docker directly for node/service counts
 - Service status: `running` = replicas up, `stopped` = tasks completed cleanly (exit 0), `failed` = tasks crashed/rejected
 

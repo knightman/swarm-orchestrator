@@ -63,7 +63,19 @@ export interface SwarmService {
   running_replicas: number;
   completed_replicas: number;
   ports: string[];
+  nodes: string[];
   created_at: string;
+}
+
+export interface SwarmStack {
+  name: string;
+  status: string;
+  services: string[];
+  service_count: number;
+  running_replicas: number;
+  desired_replicas: number;
+  ports: string[];
+  nodes: string[];
 }
 
 export interface ProjectFolder {

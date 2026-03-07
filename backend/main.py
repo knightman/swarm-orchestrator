@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.database import init_db
-from backend.routers import health, nodes, projects, registry, services
+from backend.routers import health, nodes, projects, registry, services, stacks
 from backend.services.docker_client import swarm_client
 from backend.services.health_monitor import health_monitor
 
@@ -41,6 +41,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(nodes.router)
 app.include_router(services.router)
+app.include_router(stacks.router)
 app.include_router(registry.router)
 app.include_router(projects.router)
 

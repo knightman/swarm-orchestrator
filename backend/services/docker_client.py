@@ -15,6 +15,7 @@ from backend.models.schemas import (
     ServiceDefinition,
     SwarmNode,
     SwarmService,
+    SwarmStack,
 )
 
 logger = logging.getLogger(__name__)
@@ -138,6 +139,16 @@ class SwarmClient:
     # --- Services ---
 
     def list_services(self) -> list[SwarmService]:
+        node_hostnames: dict[str, str] = {}
+        try:
+            for n in self.client.nodes.list():
+                attrs = n.attrs or {}
+                node_id = attrs.get("ID", n.id)
+                hostname = attrs.get("Description", {}).get("Hostname", node_id)
+                node_hostnames[node_id] = hostname
+        except Exception:
+            pass
+
         services = []
         for svc in self.client.services.list():
             attrs = svc.attrs or {}
@@ -157,12 +168,15 @@ class SwarmClient:
 
             running = 0
             completed = 0
+            node_ids: set[str] = set()
             try:
                 tasks = svc.tasks(filters={"desired-state": "running"})
-                running = sum(
-                    1 for t in tasks
-                    if t.get("Status", {}).get("State") == "running"
-                )
+                for t in tasks:
+                    if t.get("Status", {}).get("State") == "running":
+                        running += 1
+                        nid = t.get("NodeID", "")
+                        if nid:
+                            node_ids.add(nid)
                 if running == 0:
                     completed = sum(
                         1 for t in svc.tasks()
@@ -170,6 +184,8 @@ class SwarmClient:
                     )
             except Exception:
                 pass
+
+            nodes = sorted(node_hostnames.get(nid, nid) for nid in node_ids)
 
             services.append(SwarmService(
                 id=attrs.get("ID", svc.id),
@@ -179,9 +195,87 @@ class SwarmClient:
                 running_replicas=running,
                 completed_replicas=completed,
                 ports=ports,
+                nodes=nodes,
                 created_at=attrs.get("CreatedAt", ""),
             ))
         return services
+
+    def list_stacks(self) -> list[SwarmStack]:
+        """Group services by com.docker.stack.namespace label into stacks."""
+        node_hostnames: dict[str, str] = {}
+        try:
+            for n in self.client.nodes.list():
+                attrs = n.attrs or {}
+                node_id = attrs.get("ID", n.id)
+                hostname = attrs.get("Description", {}).get("Hostname", node_id)
+                node_hostnames[node_id] = hostname
+        except Exception:
+            pass
+
+        stacks: dict[str, dict] = {}
+        for svc in self.client.services.list():
+            attrs = svc.attrs or {}
+            spec = attrs.get("Spec", {})
+            labels = spec.get("Labels", {})
+            stack_name = labels.get("com.docker.stack.namespace")
+            if not stack_name:
+                continue
+
+            if stack_name not in stacks:
+                stacks[stack_name] = {
+                    "services": [],
+                    "ports": set(),
+                    "node_ids": set(),
+                    "running_replicas": 0,
+                    "desired_replicas": 0,
+                }
+
+            svc_name = spec.get("Name", svc.name)
+            short_name = svc_name.removeprefix(f"{stack_name}_")
+            stacks[stack_name]["services"].append(short_name)
+
+            mode = spec.get("Mode", {})
+            desired = mode.get("Replicated", {}).get("Replicas", 1)
+            stacks[stack_name]["desired_replicas"] += desired
+
+            for p in attrs.get("Endpoint", {}).get("Ports", []):
+                published = p.get("PublishedPort")
+                if published:
+                    stacks[stack_name]["ports"].add(str(published))
+
+            try:
+                for t in svc.tasks(filters={"desired-state": "running"}):
+                    if t.get("Status", {}).get("State") == "running":
+                        stacks[stack_name]["running_replicas"] += 1
+                        node_id = t.get("NodeID", "")
+                        if node_id:
+                            stacks[stack_name]["node_ids"].add(node_id)
+            except Exception:
+                pass
+
+        result = []
+        for name, data in stacks.items():
+            running = data["running_replicas"]
+            desired = data["desired_replicas"]
+            if running == 0:
+                status = "stopped"
+            elif running < desired:
+                status = "degraded"
+            else:
+                status = "running"
+
+            nodes = sorted(node_hostnames.get(nid, nid) for nid in data["node_ids"])
+            result.append(SwarmStack(
+                name=name,
+                status=status,
+                services=sorted(data["services"]),
+                service_count=len(data["services"]),
+                running_replicas=running,
+                desired_replicas=desired,
+                ports=sorted(data["ports"], key=int),
+                nodes=nodes,
+            ))
+        return sorted(result, key=lambda s: s.name)
 
     def deploy_service(self, name: str, defn: ServiceDefinition) -> str:
         kwargs: dict[str, Any] = {

@@ -68,6 +68,7 @@ backend/
     services.py        # Service CRUD, deploy, stop, scale, logs, live
     registry.py        # Registry image browser
     projects.py        # Projects directory listing
+    stacks.py          # Stack listing (grouped by com.docker.stack.namespace)
   services/
     docker_client.py   # Docker SDK wrapper (SwarmClient)
     catalog.py         # Service catalog (SQLite + YAML)
@@ -111,6 +112,7 @@ setup.sh               # Interactive first-time setup
 | POST | `/api/nodes/{id}/activate` | Activate node |
 | GET | `/api/registry/repositories` | List registry images |
 | GET | `/api/registry/repositories/{name}/tags` | Image tags |
+| GET | `/api/stacks` | List swarm stacks (services grouped by `com.docker.stack.namespace`) |
 | GET | `/api/projects` | List project folders in `PROJECTS_DIR` |
 
 ## MCP Server

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
-import type { CatalogService, ClusterHealth, ProjectFolder, RegistryRepository, RegistryRepositoryDetail, SwarmNode, SwarmService } from "../api/types";
+import type { CatalogService, ClusterHealth, ProjectFolder, RegistryRepository, RegistryRepositoryDetail, SwarmNode, SwarmService, SwarmStack } from "../api/types";
 
 export function useHealth() {
   return useQuery<ClusterHealth>({
@@ -54,6 +54,13 @@ export function useDeleteTag() {
       qc.invalidateQueries({ queryKey: ["registry", variables.name, "details"] });
       qc.invalidateQueries({ queryKey: ["registry"] });
     },
+  });
+}
+
+export function useStacks() {
+  return useQuery<SwarmStack[]>({
+    queryKey: ["stacks"],
+    queryFn: () => api.get("/stacks"),
   });
 }
 

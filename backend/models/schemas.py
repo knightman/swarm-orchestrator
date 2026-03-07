@@ -154,4 +154,18 @@ class SwarmService(BaseModel):
     running_replicas: int = 0
     completed_replicas: int = 0
     ports: list[str] = Field(default_factory=list)
+    nodes: list[str] = Field(default_factory=list)
     created_at: str = ""
+
+
+# --- Swarm Stack ---
+
+class SwarmStack(BaseModel):
+    name: str
+    status: str  # running, degraded, stopped
+    services: list[str] = Field(default_factory=list)
+    service_count: int = 0
+    running_replicas: int = 0
+    desired_replicas: int = 0
+    ports: list[str] = Field(default_factory=list)
+    nodes: list[str] = Field(default_factory=list)
